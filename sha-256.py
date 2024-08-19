@@ -267,7 +267,8 @@ def main():
                 h + H_hash[i-1][7]
             ])
 
-    print("".join([hex(i)[-8:] for i in H_hash[-1]]))
+    SHA_256_Hash = "".join([hex(i)[-8:] for i in H_hash[-1]])
+    print(SHA_256_Hash)
 
 if __name__ == "__main__":
     main()
