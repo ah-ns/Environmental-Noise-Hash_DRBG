@@ -170,8 +170,9 @@ def majority(
     return int(result, 2)
 
 def main():
-    #original_input = "846832194668976586392458758758765875087587578657865348760987584702354720957340957832094875483509237095872309845284629658466987686986789698679587666666666676565675657587578575785875875649863438479839739843987394"
-    original_input = "RedBlockBlueeeeeeeeeafdsaf9"
+    original_input = "846832194668976586392458758758765875087587578657865348760987584702354720957340957832094875483509237095872309845284629658466987686986789698679587666666666676565675657587578575785875875649863438479839739843987394846832194668976586392458758758765875087587578657865348760987584702354720957340957832094875483509237095872309845284629658466987686986789698679587666666666676565675657587578575785875875649863438479839739843987394846832194668976586392458758758765875087587578657865348760987584702354720957340957832094875483509237095872309845284629658466987686986789698679587666666666676565675657587578575785875875649863438479839739843987394"
+    #original_input = "RedBlockBluejlkdfas;RedBlockBluejlkdfas;RedBlockBluejlkdfas;RedBlockBluejlkdfas;"
+    #original_input = "RedBlockBlue"
     original_length_binary = len(str(original_input)) * 8 # Each character is represented by 8 bits
 
     binary_string = string_to_binary(str(original_input)) # Convert the original input to binary
@@ -194,7 +195,7 @@ def main():
     # Hash values (SHA-224/256 constants)
     prime_numbers = get_primes(64)
     H_hash = [[
-        hex(int(float_to_binary(math.pow(p, 1/2), 32), 2))[2:]
+        int(float_to_binary(math.pow(p, 1/2), 32), 2)
         for p in prime_numbers[:8]
     ]]
     """
@@ -215,18 +216,14 @@ def main():
         hex(int(float_to_binary(math.pow(p, 1/3), 32), 2))[2:]
         for p in prime_numbers[:64]
     ]
-    for i in range(1, len(M_blocks)+1):
+    for i in range(1, len(M_blocks) + 1):
         # Get the message schedule
-        W_schedule = []
-        for _, block in enumerate(M_blocks): # For every block
-            W_schedule_current = [j for j in block] # Start out with the first 15 words of that block
-            for t in range(16, 64): # For the rest of the sub-schedule
-                W_schedule_current.append(message_schedule_remaining(W_schedule_current, t))
-            W_schedule.extend(W_schedule_current)
-        #print(W_schedule)
+        W_schedule = [j for j in M_blocks[i-1]] # Start out with the first 15 words of that block
+        for t in range(16, 64): # For the rest of the sub-schedule
+            W_schedule.append(message_schedule_remaining(W_schedule, t))
     
         # Working variables
-        a, b, c, d, e, f, g, h = (int(H_hash[i-1][j], 16) for j in range(0, 8))
+        a, b, c, d, e, f, g, h = (H_hash[i-1][j] for j in range(0, 8))
         for t in range(0, 64):
             T1 = int(bin( # All of this junk is to simulate addition mod 2 to the 32
                 h 
@@ -240,15 +237,15 @@ def main():
                 + int(W_schedule[t], 2)
             )[2:][-32:].zfill(32), 2)
 
-            T2 = int((bin(
+            T2 = int(bin(
                 sigma_calculation(bin(a)[2:], "big", [2, 13, 22])
                 + majority(
                     bin(a)[2:][-32:].zfill(32), 
                     bin(b)[2:][-32:].zfill(32), 
                     bin(c)[2:][-32:].zfill(32)
                     )
-            )[2:])[-32:].zfill(32), 2)
-            
+            )[2:][-32:].zfill(32), 2)
+
             h = g
             g = f
             f = e
@@ -257,22 +254,20 @@ def main():
             c = b
             b = a
             a = int((bin(T1 + T2)[2:])[-32:].zfill(32), 2)
-            
+
         H_hash.append(
             [
-                a + int(H_hash[i-1][0], 16),
-                b + int(H_hash[i-1][1], 16),
-                c + int(H_hash[i-1][2], 16),
-                d + int(H_hash[i-1][3], 16),
-                e + int(H_hash[i-1][4], 16),
-                f + int(H_hash[i-1][5], 16),
-                g + int(H_hash[i-1][6], 16),
-                h + int(H_hash[i-1][7], 16)
+                int(hex(a + H_hash[i-1][0])[-8:], 16),
+                b + H_hash[i-1][1],
+                c + H_hash[i-1][2],
+                d + H_hash[i-1][3],
+                e + H_hash[i-1][4],
+                f + H_hash[i-1][5],
+                g + H_hash[i-1][6],
+                h + H_hash[i-1][7]
             ])
+
     print("".join([hex(i)[-8:] for i in H_hash[-1]]))
-    print("f8f05f79fe0c0f876d26368bd12c08ef31617039ae3104c34f22db9c0afd3bd9")
-    # Ending hash should be:
-    # f8f05f79 fe0c0f87 6d26368b d12c08ef 31617039 ae3104c3 4f22db9c 0afd3bd9
 
 if __name__ == "__main__":
     main()
