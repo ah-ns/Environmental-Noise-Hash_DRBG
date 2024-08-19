@@ -170,8 +170,8 @@ def majority(
     return int(result, 2)
 
 def main():
-    #original_input = 846832194668976586392458758758765875087587578657865348760987584702354720957340957832094875483509237095872309845284629658466987686986789698679587666666666676565675657587578575785875875649863438479839739843987394
-    original_input = "RedBlockBlue"
+    #original_input = "846832194668976586392458758758765875087587578657865348760987584702354720957340957832094875483509237095872309845284629658466987686986789698679587666666666676565675657587578575785875875649863438479839739843987394"
+    original_input = "RedBlockBlueeeeeeeeeafdsaf9"
     original_length_binary = len(str(original_input)) * 8 # Each character is represented by 8 bits
 
     binary_string = string_to_binary(str(original_input)) # Convert the original input to binary
@@ -227,8 +227,7 @@ def main():
     
         # Working variables
         a, b, c, d, e, f, g, h = (int(H_hash[i-1][j], 16) for j in range(0, 8))
-        for t in range(0, 1):
-            print(t)
+        for t in range(0, 64):
             T1 = int(bin( # All of this junk is to simulate addition mod 2 to the 32
                 h 
                 + sigma_calculation(bin(e)[2:][-32:], "big", [6, 11, 25])
@@ -239,13 +238,8 @@ def main():
                     )
                 + int(K_constants[t], 16)
                 + int(W_schedule[t], 2)
-            )[2:][-32:].zfill(32), 2) # Everything up to here is working
-            
-            print(bin(majority(
-                    bin(a)[2:][-32:].zfill(32), 
-                    bin(b)[2:][-32:].zfill(32), 
-                    bin(c)[2:][-32:].zfill(32)
-                    )))
+            )[2:][-32:].zfill(32), 2)
+
             T2 = int((bin(
                 sigma_calculation(bin(a)[2:], "big", [2, 13, 22])
                 + majority(
@@ -254,7 +248,7 @@ def main():
                     bin(c)[2:][-32:].zfill(32)
                     )
             )[2:])[-32:].zfill(32), 2)
-            print(bin(T2))
+            
             h = g
             g = f
             f = e
@@ -263,7 +257,7 @@ def main():
             c = b
             b = a
             a = int((bin(T1 + T2)[2:])[-32:].zfill(32), 2)
-
+            
         H_hash.append(
             [
                 a + int(H_hash[i-1][0], 16),
@@ -275,11 +269,10 @@ def main():
                 g + int(H_hash[i-1][6], 16),
                 h + int(H_hash[i-1][7], 16)
             ])
-        print(H_hash)
-        print([bin(i) for i in H_hash[-1]])
-    print(hex("".join(H_hash[-1])))
+    print("".join([hex(i)[-8:] for i in H_hash[-1]]))
+    print("f8f05f79fe0c0f876d26368bd12c08ef31617039ae3104c34f22db9c0afd3bd9")
     # Ending hash should be:
-    # f8f05f79fe0c0f876d26368bd12c08ef31617039ae3104c34f22db9c0afd3bd9
+    # f8f05f79 fe0c0f87 6d26368b d12c08ef 31617039 ae3104c3 4f22db9c 0afd3bd9
 
 if __name__ == "__main__":
     main()
