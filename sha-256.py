@@ -84,10 +84,10 @@ def message_schedule_remaining(W_schedule: list, t: int) -> list:
     Wt16 = W_schedule[t-16]
     result = (bin( # There must be a way to do addition mod 2**32 using XOR, but I didn't figure it out
         sigma_1
-        ^ int(Wt7, 2) 
-        ^ sigma_0
-        ^ int(Wt16, 2)
-        )[2:])[-31:].zfill(32) # Only the 32 least significant bits
+        + int(Wt7, 2) 
+        + sigma_0
+        + int(Wt16, 2)
+        )[2:])[-32:].zfill(32) # Only the 32 least significant bits
     #print(f"t: {t}")
     #print(f"{bin(sigma_1)}, {bin(int(Wt7, 2))}, {bin(sigma_0)}, {bin(int(Wt16, 2))}") # To check all the addends
     #print(result)
@@ -122,7 +122,7 @@ def sigma_calculation(
             addend1 = rotation(values[0])
             addend2 = rotation(values[1])
             addend3 = rotation(values[2])
-            #print(bin(int(addend1, 2) ^ int(addend2, 2) ^ int(addend3, 2))[2:].zfill(32)[-31:])
+            #print(bin(int(addend1, 2) ^ int(addend2, 2) ^ int(addend3, 2))[2:].zfill(32)[-32:])
 
     return int(addend1, 2) ^ int(addend2, 2) ^ int(addend3, 2) # XOR is equal to addition mod 2
 
@@ -221,43 +221,43 @@ def main():
             for t in range(16, 64): # For the rest of the sub-schedule
                 W_schedule_current.append(message_schedule_remaining(W_schedule_current, t))
             W_schedule.extend(W_schedule_current)
-        #print(W_schedule)
+        print(W_schedule)
     
         # Working variables
         a, b, c, d, e, f, g, h = (int(H_hash[i-1][j], 16) for j in range(0, 8))
         for t in range(0, 1):
             print(t)
-            print(bin(sigma_calculation(bin(e)[2:][-31:], "big", [6, 11, 25])))
+            print(bin(sigma_calculation(bin(e)[2:][-32:], "big", [6, 11, 25])))
             print(bin(e))
             T1 = int((bin( # All of this junk is to simulate addition mod 2 to the 32
                 h 
-                ^ sigma_calculation(bin(e)[2:][-31:], "big", [6, 11, 25])
+                ^ sigma_calculation(bin(e)[2:][-32:], "big", [6, 11, 25])
                 ^ choose(
-                    bin(e)[2:].zfill(32)[-31:],
-                    bin(f)[2:].zfill(32)[-31:], 
-                    bin(g)[2:].zfill(32)[-31:]
+                    bin(e)[2:].zfill(32)[-32:],
+                    bin(f)[2:].zfill(32)[-32:], 
+                    bin(g)[2:].zfill(32)[-32:]
                     )
                 ^ int(K_constants[i], 16)
                 ^ int(W_schedule[i], 2)
-            )[2:])[-31:].zfill(32), 2)
+            )[2:])[-32:].zfill(32), 2)
             #print(bin(T1))
             T2 = int((bin(
                 sigma_calculation(bin(a)[2:], "big", [2, 13, 22])
                 ^ majority(
-                    bin(a)[2:].zfill(32)[-31:], 
-                    bin(b)[2:].zfill(32)[-31:], 
-                    bin(c)[2:].zfill(32)[-31:]
+                    bin(a)[2:].zfill(32)[-32:], 
+                    bin(b)[2:].zfill(32)[-32:], 
+                    bin(c)[2:].zfill(32)[-32:]
                     )
-            )[2:])[-31:].zfill(32), 2)
+            )[2:])[-32:].zfill(32), 2)
             #print(bin(T2))
             h = g
             g = f
             f = e
-            e = int((bin(d + T1)[2:])[-31:].zfill(32), 2)
+            e = int((bin(d + T1)[2:])[-32:].zfill(32), 2)
             d = c
             c = b
             b = a
-            a = int((bin(T1 + T2)[2:])[-31:].zfill(32), 2)
+            a = int((bin(T1 + T2)[2:])[-32:].zfill(32), 2)
 
         H_hash.append(
             [
@@ -271,7 +271,10 @@ def main():
                 h + int(H_hash[i-1][7], 16)
             ])
         print(H_hash)
-    print(hex(H_hash[-1][0]))
+        print([bin(i) for i in H_hash[-1]])
+    print(hex("".join(H_hash[-1])))
+    # Ending hash should be:
+    # f8f05f79fe0c0f876d26368bd12c08ef31617039ae3104c34f22db9c0afd3bd9
 
 if __name__ == "__main__":
     main()
