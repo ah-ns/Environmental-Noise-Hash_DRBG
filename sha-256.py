@@ -106,6 +106,8 @@ def sigma_calculation(
     :values:        The rotation and shift values being used
     :return:        The end sigma value
     """
+    bit_input = bit_input.zfill(32) # ensure the input is 32 bits long
+
     def rotation(value: int):
         return bit_input[-value:] + bit_input[:-value]
     
@@ -157,7 +159,7 @@ def majority(
     """
     result = ""
     for i, _ in enumerate(word_1):
-        bit_counts = {"0": 0, "1": 1}
+        bit_counts = {"0": 0, "1": 0}
         bit_counts[word_1[i]] += 1
         bit_counts[word_2[i]] += 1
         bit_counts[word_3[i]] += 1
@@ -221,35 +223,38 @@ def main():
             for t in range(16, 64): # For the rest of the sub-schedule
                 W_schedule_current.append(message_schedule_remaining(W_schedule_current, t))
             W_schedule.extend(W_schedule_current)
-        print(W_schedule)
+        #print(W_schedule)
     
         # Working variables
         a, b, c, d, e, f, g, h = (int(H_hash[i-1][j], 16) for j in range(0, 8))
         for t in range(0, 1):
             print(t)
-            print(bin(sigma_calculation(bin(e)[2:][-32:], "big", [6, 11, 25])))
-            print(bin(e))
-            T1 = int((bin( # All of this junk is to simulate addition mod 2 to the 32
+            T1 = int(bin( # All of this junk is to simulate addition mod 2 to the 32
                 h 
-                ^ sigma_calculation(bin(e)[2:][-32:], "big", [6, 11, 25])
-                ^ choose(
-                    bin(e)[2:].zfill(32)[-32:],
-                    bin(f)[2:].zfill(32)[-32:], 
-                    bin(g)[2:].zfill(32)[-32:]
+                + sigma_calculation(bin(e)[2:][-32:], "big", [6, 11, 25])
+                + choose(
+                    bin(e)[2:][-32:].zfill(32),
+                    bin(f)[2:][-32:].zfill(32), 
+                    bin(g)[2:][-32:].zfill(32)
                     )
-                ^ int(K_constants[i], 16)
-                ^ int(W_schedule[i], 2)
-            )[2:])[-32:].zfill(32), 2)
-            #print(bin(T1))
+                + int(K_constants[t], 16)
+                + int(W_schedule[t], 2)
+            )[2:][-32:].zfill(32), 2) # Everything up to here is working
+            
+            print(bin(majority(
+                    bin(a)[2:][-32:].zfill(32), 
+                    bin(b)[2:][-32:].zfill(32), 
+                    bin(c)[2:][-32:].zfill(32)
+                    )))
             T2 = int((bin(
                 sigma_calculation(bin(a)[2:], "big", [2, 13, 22])
-                ^ majority(
-                    bin(a)[2:].zfill(32)[-32:], 
-                    bin(b)[2:].zfill(32)[-32:], 
-                    bin(c)[2:].zfill(32)[-32:]
+                + majority(
+                    bin(a)[2:][-32:].zfill(32), 
+                    bin(b)[2:][-32:].zfill(32), 
+                    bin(c)[2:][-32:].zfill(32)
                     )
             )[2:])[-32:].zfill(32), 2)
-            #print(bin(T2))
+            print(bin(T2))
             h = g
             g = f
             f = e
