@@ -3,6 +3,7 @@
 import os
 import logging
 import time
+import math
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -17,38 +18,68 @@ from pms5003 import PMS5003
 from pms5003 import ReadTimeoutError as pmsReadTimeoutError
 from enviroplus import gas
 
-def check_sensors(
-	temperature: float,
-	pressure: float,
-	humidity: float,
-	light: float,
-	proximity: float,
-	oxidized: float,
-	reduced: float,
-	nh3: float
-	):
-	# CPU temp /sys/class/thermal/thermal_zone0/temp
-	raise NotImplementedError()
 
-def get_cpu_temperature():
-	raise NotImplementedError()
+class Sensors:
+	""" Sets up all specified sensors and includes all reused functions"""
+
+	def __init__(
+			self, 
+			sensor_list=[
+				"temperature",
+				"pressure",
+				"humidity",
+				"light",
+				"proximity",
+				"oxidized_gas",
+				"reduced_gas",
+				"nh3_gas",
+				],
+			):
+		self.sensor_list = sensor_list
+		self.__ltr559 = LTR559() # Proximity sensor is always used
+		
+		sensor_set = set(sensor_list)
+		if "temperature" in sensor_set \
+		or "pressure" in sensor_set \
+		or "humidity" in sensor_set:				
+			# Transfers information from sensor to RPi
+			# 	using the directory /dev/i2c-{bus}
+			# Temp, humidity, pressure sensors
+			bus = SMBus(bus=1)
+			self.__bme280 = BME280(i2c_dev=bus)
 	
+	def check_entropy(self, input: str, symbol_space_size: int):
+		""" Ensures a level of entropy in the random input
+		
+		:param input:				The string that the entropy will be calculated for
+		:param symbol_space_size:	The number of possible options per character
+		:return:					Bits of entropy
+		"""
+		return len(input) * math.log(symbol_space_size, 2)
+
+	def get_cpu_temperature(self):
+		""" To compensate for changes in hardware temperature"""
+		# CPU temp /sys/class/thermal/thermal_zone0/temp
+		raise NotImplementedError()
+
+	def get_prox(self):
+		return self.__ltr559.get_proximity()
+	
+	def get_light(self):
+		return self.__ltr559.get_lux()
+
+	def get_temp(self):
+		return self.__bme280.get_temperature()
+	
+	def get_pres(self):
+		return self.__bme280.get_pressure()
+
+	def get_humi(self):
+		return self.__bme280.get_humidity()
+
+
 def main():
-	# Make dataframe for distribution graph
-	columns = [
-		"temperature",
-		"pressure",
-		"humidity",
-		"light",
-		"proximity",
-		"oxidized_gas",
-		"reduced_gas",
-		"nh3_gas",
-		]
-	sensor_data = {"temperature":[]}
-	#sensor_data = {column: [] for column in columns}
-	
-	# Extra logging information
+	# Basic logging information
 	extra_info = {"user": os.getlogin()}
 	
 	# Create a log file to store numbers in
@@ -72,72 +103,56 @@ def main():
 	image = Image.new(
 				"RGB", 
 				(display.width, display.height),
-				color=(0,0,0)
+				color=(200, 200, 0)
 				)
+	# Test if display works without this below block
 	draw = ImageDraw.Draw(image)
 	back_color = (200, 200, 0) # Set to yellow to indicate setup
 	draw.rectangle((0, 0, 160, 80), back_color)
 	display.display(image)
+
+	sensors = Sensors(["temperature",]) # Initialize the desired sensors
 	
-	# Transfers information from sensor to RPi
-	# 	using the directory /dev/i2c-{bus}
-	# Temp, humidity, pressure sensors
-	bus = SMBus(bus=1)
-	bme280 = BME280(i2c_dev=bus)
-	
-	# Light/proximity sensor
-	ltr559 = LTR559()
-	
-	# Ensure sensors are reading stable
-	'''
-	check_sensors(
-		temperature=Decimal(bme280.get_temperature()),
-		pressure=Decimal(bme280.get_pressure()),
-		humidity=Decimal(bme280.get_humidity()),
-		light=Decimal(ltr559.get_lux()),
-		proximity=Decimal(ltr559.get_proximity()),
-		oxidized=Decimal(0),
-		reduced=Decimal(0),
-		nh3=Decimal(0),
-		)'''
-	
-	flag = False
-	count = 1
+	sensor_data = {sensor: [] for sensor in sensors.sensor_list}
+	current_sensor_data = {sensor: 0 for sensor in sensors.sensor_list}
+
 	try:
-		back_color = (0, 200, 25) # Green to indicate working
+		# Set display to green to indicate working
+		back_color = (0, 200, 25)
 		draw.rectangle((0, 0, 160, 80), back_color)
 		display.display(image)
-		while not flag:
-			# Decimal ensures all decimal places are displayed
-			temperature = bme280.get_temperature()
-			pressure = bme280.get_pressure()
-			humidity = bme280.get_humidity()
-			light = ltr559.get_lux()
-			proximity = ltr559.get_proximity()
+
+		flag = False
+		while not flag: # While the temperature is within reasonable range
+			# Get the current sensor data to check
+			current_sensor_data["temperature"] = 	sensors.get_temp()
+			current_sensor_data["pressure"] = 		sensors.get_pres()
+			current_sensor_data["humidity"] = 		sensors.get_humi()
+			current_sensor_data["light"] = 			sensors.get_light()
+			current_sensor_data["proximity"] = 		sensors.get_prox()
 		
-			# Prevent something interfering with data collection
-			if -10 > temperature > 50:
+			if -10 > current_sensor_data["temperature"] > 50: # Stops running if the temperature gets too hot
 				flag = True
-			elif proximity > 1:
+			elif current_sensor_data["proximity"] > 1: # Make sure nothing gets too close to interfere with readings
 				back_color = (200, 0, 25) # Red to indicate error
 				draw.rectangle((0, 0, 160, 80), back_color)
 				display.display(image)
-				while proximity > 0:
+				while current_sensor_data["proximity"] > 0:
 					# Warn that there is something interfering
 					prox_warning = (
 						"Something is near the sensor. "
-						f"Prox: {proximity}. "
+						f"Prox: {current_sensor_data["proximity"]}. "
 						"Please remove to continue."
 						)
 					print(prox_warning)
+					# Add the warning to the log
 					logging.warning(
 						prox_warning,
 						extra=extra_info
 						)
-					
+					# Wait 5 seconds before collecting the proximity again
 					time.sleep(5)
-					proximity = ltr559.get_proximity()
-					
+					current_sensor_data["proximity"] = sensors.get_prox()
 				# Warn when restarting collecting
 				logging.warning(
 					"Resuming data collection", 
@@ -146,23 +161,19 @@ def main():
 				back_color = (0, 200, 25) # Green to indicate working
 				draw.rectangle((0, 0, 160, 80), back_color)
 				display.display(image)
-			# If there is nothing wrong
-			else:
-				if temperature > 30:
-					
-					sensor_data["temperature"].append(temperature)
-
-					logging.info(
-						Decimal(temperature),
-						extra=extra_info
-						)
-			time.sleep(.9) # The avg. response time is about .88 seconds
+			else: # If there is nothing wrong
+				for sensor in sensors.sensor_list:
+					sensor_data[sensor].append(current_sensor_data[sensor])
+				logging.info(
+					Decimal(current_sensor_data["temperature"]),
+					extra=extra_info
+					)
+			time.sleep(1) # The avg. sensor refresh is about .88 seconds
 	
-	except KeyboardInterrupt:
+	except KeyboardInterrupt: # When the data collection is manually stopped
+		# Create a graph of the distribution data
 		sensor_dataframe = pd.DataFrame(sensor_data)
+		sensor_dataframe.to_csv("./Test1", index=False)
 		print(sensor_dataframe["temperature"].value_counts())
 		sns.displot(data=sensor_dataframe, x="temperature", kde=True)
 		plt.show()
-		
-if __name__ == '__main__':
-	main()
