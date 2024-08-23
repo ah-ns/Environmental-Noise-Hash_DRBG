@@ -85,7 +85,7 @@ def main():
 	# Create a log file to store numbers in
 	logging.basicConfig(
 		format="%(asctime)s %(user)-8s %(message)s",
-		filename="noise-log.log", 
+		filename="new-noise-log.log", 
 		level=logging.INFO,
 		filemode="a",
 		)
@@ -103,13 +103,9 @@ def main():
 	image = Image.new(
 				"RGB", 
 				(display.width, display.height),
-				color=(200, 200, 0)
+				color=(200, 200, 0) # Set to yellow to indicate setup
 				)
-	# Test if display works without this below block
-	draw = ImageDraw.Draw(image)
-	back_color = (200, 200, 0) # Set to yellow to indicate setup
-	draw.rectangle((0, 0, 160, 80), back_color)
-	display.display(image)
+	draw = ImageDraw.Draw(image) # Initiate draw object 
 
 	sensors = Sensors(["temperature",]) # Initialize the desired sensors
 	
@@ -121,6 +117,12 @@ def main():
 		back_color = (0, 200, 25)
 		draw.rectangle((0, 0, 160, 80), back_color)
 		display.display(image)
+		# The first reading seems to be the same every time
+		current_sensor_data["temperature"] = 	sensors.get_temp()
+		current_sensor_data["pressure"] = 		sensors.get_pres()
+		current_sensor_data["humidity"] = 		sensors.get_humi()
+		current_sensor_data["light"] = 			sensors.get_light()
+		current_sensor_data["proximity"] = 		sensors.get_prox()
 
 		flag = False
 		while not flag: # While the temperature is within reasonable range
@@ -141,7 +143,7 @@ def main():
 					# Warn that there is something interfering
 					prox_warning = (
 						"Something is near the sensor. "
-						f"Prox: {current_sensor_data["proximity"]}. "
+						f"Prox: {current_sensor_data['proximity']}. "
 						"Please remove to continue."
 						)
 					print(prox_warning)
@@ -163,9 +165,15 @@ def main():
 				display.display(image)
 			else: # If there is nothing wrong
 				for sensor in sensors.sensor_list:
-					sensor_data[sensor].append(current_sensor_data[sensor])
+					# Take use decimal places 5-20 for a random string
+					random_num = int(str(
+						(Decimal(current_sensor_data[sensor])
+						- int(current_sensor_data[sensor]))
+						)[6:21]) % 100
+					print(random_num)
+					sensor_data[sensor].append(random_num)
 				logging.info(
-					Decimal(current_sensor_data["temperature"]),
+					random_num,
 					extra=extra_info
 					)
 			time.sleep(1) # The avg. sensor refresh is about .88 seconds
@@ -173,7 +181,9 @@ def main():
 	except KeyboardInterrupt: # When the data collection is manually stopped
 		# Create a graph of the distribution data
 		sensor_dataframe = pd.DataFrame(sensor_data)
-		sensor_dataframe.to_csv("./Test1", index=False)
+		#sensor_dataframe.to_csv("./test_3", index=False)
 		print(sensor_dataframe["temperature"].value_counts())
 		sns.displot(data=sensor_dataframe, x="temperature", kde=True)
 		plt.show()
+
+main()
