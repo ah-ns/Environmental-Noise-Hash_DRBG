@@ -1,0 +1,24 @@
+test 1: raw temperature all decimal places (3 hour)
+	Histogram has a single  spike around 40.5 Celsius, with around 750 frequency
+	Approx. range of 39-41 Celsius, with strong left skew
+
+test 2: 5th to 19th decimal places of the temperature (3 hour)
+	Histogram has an approximately uniform distribution
+	350-400 frequency for each range
+	Frequency seems to go down as the numbers increase, unsure if this indicates non-uniformity
+
+test 3: 5th to 19th decimal places of the temperature mod 100 (3 hour)
+	Shows about same distribution as test 2, perhaps more evenly uniform
+
+test 4: 5th to 19th decimal place of pressure mod 100 (30 min)
+	Could be uniform, but not enough data was collected
+	Spike around the 57, with 34 frequency. Next highest has 28
+	Lowest frequency is 10 for value 41
+
+test 5: 4th to 10th decimal place of pressure mod 100 (1 hour)
+	Looks about uniform except for value 99 which has frequency of about 120.
+	2nd highest frequency is < 90, 3rd highest is < 80
+	Lowest frequency is about 50
+	Realize the sensor may not have the float precision needed, so the decimal places aren't random 
+
+	
