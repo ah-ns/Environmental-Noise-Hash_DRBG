@@ -40,16 +40,11 @@ class Sensors:
 			):
 		self.sensor_list = sensor_list
 		self.__ltr559 = LTR559() # Proximity sensor is always used
-		
-		sensor_set = set(sensor_list)
-		if "temperature" in sensor_set \
-		or "pressure" in sensor_set \
-		or "humidity" in sensor_set:				
-			# Transfers information from sensor to RPi
-			# 	using the directory /dev/i2c-{bus}
-			# Temp, humidity, pressure sensors
-			bus = SMBus(bus=1)
-			self.__bme280 = BME280(i2c_dev=bus)
+		# Transfers information from sensor to RPi
+		# 	using the directory /dev/i2c-{bus}
+		# Temp, humidity, pressure sensors
+		bus = SMBus(bus=1)
+		self.__bme280 = BME280(i2c_dev=bus)
 	
 	def check_entropy(self, input: str, symbol_space_size: int):
 		""" Ensures a level of entropy in the random input
@@ -79,7 +74,6 @@ class Sensors:
 	def get_pres(self, prev_pres: float) -> float:
 		current_pres = self.__bme280.get_pressure()
 		while current_pres == prev_pres:
-			print(current_pres, prev_pres)
 			time.sleep(.1)
 			current_pres = self.__bme280.get_pressure()
 		return current_pres
@@ -95,31 +89,19 @@ class Sensors:
 		gas_data = gas.read_all()
 		current_gases = [
 			gas_data.oxidising, 
-			gas_data.reduced, 
+			gas_data.reducing, 
 			gas_data.nh3]
 		while current_gases == prev_gases:
 			time.sleep(.1)
 			gas_data = gas.read_all()
 			current_gases = [
 				gas_data.oxidising, 
-				gas_data.reduced, 
+				gas_data.reducing, 
 				gas_data.nh3,]
 		return current_gases
 	
 	def get_particles(self, prev_particles: list) -> list:
-		try:
-			particle_data = pms5003.read()
-			current_particles = [
-				particle_data.pm_ug_per_m3(1.0),
-				particle_data.pm_ug_per_m3(2.5),
-				particle_data.pm_ug_per_m3(10),]
-		except pmsReadTimeoutError:
-			logging.warning("pms5003 read error")
-			current_particles = None
-			
-		while current_particles == None 
-			or current_particles == prev_particles:
-			time.sleep(.1)
+		def try_read():
 			try:
 				particle_data = pms5003.read()
 				current_particles = [
@@ -129,6 +111,13 @@ class Sensors:
 			except pmsReadTimeoutError:
 				logging.warning("pms5003 read error")
 				current_particles = None
+			return current_particles
+			
+		current_particles = try_read() # priming read
+		while current_particles == None \
+			or current_particles == prev_particles:
+			time.sleep(.1)
+			current_particles = try_read()
 		return current_particles
 
 
@@ -139,7 +128,7 @@ def main():
 	# Create a log file to store numbers in
 	logging.basicConfig(
 		format="%(asctime)s %(user)-8s %(message)s",
-		filename="new-noise-log.log", 
+		filename="./logs/new-noise-log.log", 
 		level=logging.INFO,
 		filemode="a",
 		)
@@ -151,7 +140,7 @@ def main():
 		dc="GPIO9",
 		backlight="GPIO12",
 		rotation=270,
-		spi_speed_hz=60
+		spi_speed_hz=10000000
 		)
 	display.begin() # initialize display
 	image = Image.new(
@@ -161,7 +150,7 @@ def main():
 				)
 	draw = ImageDraw.Draw(image) # Initiate draw object 
 
-	sensors = Sensors(["nh3",]) # Initialize the desired sensors
+	sensors = Sensors(["temperature", "pressure"]) # Initialize the desired sensors
 	
 	sensor_data = {sensor: [] for sensor in sensors.sensor_list}
 	current_sensor_data = {sensor: 0 for sensor in sensors.sensor_list}
@@ -222,10 +211,11 @@ def main():
 			else: # If there is nothing wrong
 				for sensor in sensors.sensor_list:
 					# Take use decimal places 5-20 for a random string
+					#random_num = Decimal(current_sensor_data[sensor])
 					random_num = int(str(
 						(Decimal(current_sensor_data[sensor])
 						- int(current_sensor_data[sensor]))
-						)[6:22]) % 100
+						)[6:22])
 					print(random_num)
 					sensor_data[sensor].append(random_num)
 				logging.info(
@@ -237,14 +227,15 @@ def main():
 	except KeyboardInterrupt: # When the data collection is manually stopped
 		# Create a graph of the distribution data
 		sensor_dataframe = pd.DataFrame(sensor_data)
-		sensor_dataframe.to_csv("./test_current", index=False)
 		print(sensor_dataframe.value_counts())
-		for sensor in sensors.sensor_list:
+		for sensor in sensor_dataframe.columns:
+			column = pd.DataFrame(sensor_dataframe[sensor])
 			sns.displot(
-				data=sensor_dataframe, 
+				data=column, 
 				x=sensor, 
-				bins=np.arange(0, 100), 
+				bins=100, #np.arange(0, 100), 
 				kde=True)
 			plt.show()
+		sensor_dataframe.to_csv("./logs/test_current", index=False)
 
 main()
