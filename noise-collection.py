@@ -4,6 +4,7 @@ import os
 import logging
 import time
 import math
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -28,11 +29,13 @@ class Sensors:
 				"temperature",
 				"pressure",
 				"humidity",
-				"light",
 				"proximity",
 				"oxidized_gas",
 				"reduced_gas",
 				"nh3_gas",
+				"pm1",
+				"pm2.5",
+				"pm10",
 				],
 			):
 		self.sensor_list = sensor_list
@@ -59,23 +62,74 @@ class Sensors:
 
 	def get_cpu_temperature(self):
 		""" To compensate for changes in hardware temperature"""
-		# CPU temp /sys/class/thermal/thermal_zone0/temp
-		raise NotImplementedError()
+		with open("/sys/class/thermal/thermal_zone0/temp", "r") as file:
+			temp_celsius = file.read()
+		return int(temp_celsius) / 1000.0
 
 	def get_prox(self):
 		return self.__ltr559.get_proximity()
-	
-	def get_light(self):
-		return self.__ltr559.get_lux()
 
-	def get_temp(self):
-		return self.__bme280.get_temperature()
+	def get_temp(self, prev_temp: float) -> float:
+		current_temp = self.__bme280.get_temperature()
+		while current_temp == prev_temp:
+			time.sleep(.1)
+			current_temp = self.__bme280.get_temperature()
+		return current_temp
 	
-	def get_pres(self):
-		return self.__bme280.get_pressure()
+	def get_pres(self, prev_pres: float) -> float:
+		current_pres = self.__bme280.get_pressure()
+		while current_pres == prev_pres:
+			print(current_pres, prev_pres)
+			time.sleep(.1)
+			current_pres = self.__bme280.get_pressure()
+		return current_pres
 
-	def get_humi(self):
-		return self.__bme280.get_humidity()
+	def get_humi(self, prev_humi: float) -> float:
+		current_humi = self.__bme280.get_humidity()
+		while current_humi == prev_humi:
+			time.sleep(.1)
+			current_humi = self.__bme280.get_humidity()
+		return current_humi
+	
+	def get_gas(self, prev_gases: list) -> list:
+		gas_data = gas.read_all()
+		current_gases = [
+			gas_data.oxidising, 
+			gas_data.reduced, 
+			gas_data.nh3]
+		while current_gases == prev_gases:
+			time.sleep(.1)
+			gas_data = gas.read_all()
+			current_gases = [
+				gas_data.oxidising, 
+				gas_data.reduced, 
+				gas_data.nh3,]
+		return current_gases
+	
+	def get_particles(self, prev_particles: list) -> list:
+		try:
+			particle_data = pms5003.read()
+			current_particles = [
+				particle_data.pm_ug_per_m3(1.0),
+				particle_data.pm_ug_per_m3(2.5),
+				particle_data.pm_ug_per_m3(10),]
+		except pmsReadTimeoutError:
+			logging.warning("pms5003 read error")
+			current_particles = None
+			
+		while current_particles == None 
+			or current_particles == prev_particles:
+			time.sleep(.1)
+			try:
+				particle_data = pms5003.read()
+				current_particles = [
+					particle_data.pm_ug_per_m3(1.0),
+					particle_data.pm_ug_per_m3(2.5),
+					particle_data.pm_ug_per_m3(10),]
+			except pmsReadTimeoutError:
+				logging.warning("pms5003 read error")
+				current_particles = None
+		return current_particles
 
 
 def main():
@@ -97,7 +151,7 @@ def main():
 		dc="GPIO9",
 		backlight="GPIO12",
 		rotation=270,
-		spi_speed_hz=10000000
+		spi_speed_hz=60
 		)
 	display.begin() # initialize display
 	image = Image.new(
@@ -107,7 +161,7 @@ def main():
 				)
 	draw = ImageDraw.Draw(image) # Initiate draw object 
 
-	sensors = Sensors(["temperature",]) # Initialize the desired sensors
+	sensors = Sensors(["nh3",]) # Initialize the desired sensors
 	
 	sensor_data = {sensor: [] for sensor in sensors.sensor_list}
 	current_sensor_data = {sensor: 0 for sensor in sensors.sensor_list}
@@ -118,19 +172,21 @@ def main():
 		draw.rectangle((0, 0, 160, 80), back_color)
 		display.display(image)
 		# The first reading seems to be the same every time
-		current_sensor_data["temperature"] = 	sensors.get_temp()
-		current_sensor_data["pressure"] = 		sensors.get_pres()
-		current_sensor_data["humidity"] = 		sensors.get_humi()
-		current_sensor_data["light"] = 			sensors.get_light()
+		current_sensor_data["temperature"] = 	sensors.get_temp(-999)
+		current_sensor_data["pressure"] = 		sensors.get_pres(-999)
+		current_sensor_data["humidity"] = 		sensors.get_humi(-999)
+		current_sensor_data["oxidized_gas"], current_sensor_data["reduced_gas"], current_sensor_data["nh3_gas"] = sensors.get_gas([-999, -999, -999])
+		current_sensor_data["pm1"], current_sensor_data["pm2.5"], current_sensor_data["pm10"] = sensors.get_gas([-999, -999, -999])
 		current_sensor_data["proximity"] = 		sensors.get_prox()
 
 		flag = False
 		while not flag: # While the temperature is within reasonable range
 			# Get the current sensor data to check
-			current_sensor_data["temperature"] = 	sensors.get_temp()
-			current_sensor_data["pressure"] = 		sensors.get_pres()
-			current_sensor_data["humidity"] = 		sensors.get_humi()
-			current_sensor_data["light"] = 			sensors.get_light()
+			current_sensor_data["temperature"] = 	sensors.get_temp(current_sensor_data["temperature"])
+			current_sensor_data["pressure"] = 		sensors.get_pres(current_sensor_data["pressure"])
+			current_sensor_data["humidity"] = 		sensors.get_humi(current_sensor_data["humidity"])
+			current_sensor_data["oxidized_gas"], current_sensor_data["reduced_gas"], current_sensor_data["nh3_gas"] = sensors.get_gas([current_sensor_data["oxidized_gas"], current_sensor_data["reduced_gas"], current_sensor_data["nh3_gas"]])
+			current_sensor_data["pm1"], current_sensor_data["pm2.5"], current_sensor_data["pm10"] = sensors.get_gas([current_sensor_data["pm1"], current_sensor_data["pm2.5"], current_sensor_data["pm10"]])
 			current_sensor_data["proximity"] = 		sensors.get_prox()
 		
 			if -10 > current_sensor_data["temperature"] > 50: # Stops running if the temperature gets too hot
@@ -169,21 +225,26 @@ def main():
 					random_num = int(str(
 						(Decimal(current_sensor_data[sensor])
 						- int(current_sensor_data[sensor]))
-						)[6:21]) % 100
+						)[6:22]) % 100
 					print(random_num)
 					sensor_data[sensor].append(random_num)
 				logging.info(
 					random_num,
 					extra=extra_info
 					)
-			time.sleep(1) # The avg. sensor refresh is about .88 seconds
+			time.sleep(0) # The avg. sensor refresh is about .88 seconds
 	
 	except KeyboardInterrupt: # When the data collection is manually stopped
 		# Create a graph of the distribution data
 		sensor_dataframe = pd.DataFrame(sensor_data)
-		#sensor_dataframe.to_csv("./test_3", index=False)
-		print(sensor_dataframe["temperature"].value_counts())
-		sns.displot(data=sensor_dataframe, x="temperature", kde=True)
-		plt.show()
+		sensor_dataframe.to_csv("./test_current", index=False)
+		print(sensor_dataframe.value_counts())
+		for sensor in sensors.sensor_list:
+			sns.displot(
+				data=sensor_dataframe, 
+				x=sensor, 
+				bins=np.arange(0, 100), 
+				kde=True)
+			plt.show()
 
 main()
