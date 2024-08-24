@@ -227,6 +227,7 @@ def collect_noise(min_bits_entropy: int):
 				extra=extra_info
 				)
 		time.sleep(0) # The avg. sensor refresh is about .88 seconds
+	return entropy_output
 
 	""" For testing entropy of the sensors
 	except KeyboardInterrupt: # When the data collection is manually stopped
