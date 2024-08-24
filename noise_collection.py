@@ -46,7 +46,7 @@ class Sensors:
 		bus = SMBus(bus=1)
 		self.__bme280 = BME280(i2c_dev=bus)
 	
-	def check_entropy(self, input: str, symbol_space_size: int):
+	def get_entropy(self, input: str, symbol_space_size: int):
 		""" Ensures a level of entropy in the random input
 		
 		:param input:				The string that the entropy will be calculated for
@@ -121,7 +121,7 @@ class Sensors:
 		return current_particles
 
 
-def main():
+def collect_noise(min_bits_entropy: int):
 	# Basic logging information
 	extra_info = {"user": os.getlogin()}
 	
@@ -155,75 +155,80 @@ def main():
 	sensor_data = {sensor: [] for sensor in sensors.sensor_list}
 	current_sensor_data = {sensor: 0 for sensor in sensors.sensor_list}
 
-	try:
-		# Set display to green to indicate working
-		back_color = (0, 200, 25)
-		draw.rectangle((0, 0, 160, 80), back_color)
-		display.display(image)
-		# The first reading seems to be the same every time
-		current_sensor_data["temperature"] = 	sensors.get_temp(-999)
-		current_sensor_data["pressure"] = 		sensors.get_pres(-999)
-		current_sensor_data["humidity"] = 		sensors.get_humi(-999)
-		current_sensor_data["oxidized_gas"], current_sensor_data["reduced_gas"], current_sensor_data["nh3_gas"] = sensors.get_gas([-999, -999, -999])
-		current_sensor_data["pm1"], current_sensor_data["pm2.5"], current_sensor_data["pm10"] = sensors.get_gas([-999, -999, -999])
-		current_sensor_data["proximity"] = 		sensors.get_prox()
+	#try:
+	# Set display to green to indicate working
+	back_color = (0, 200, 25)
+	draw.rectangle((0, 0, 160, 80), back_color)
+	display.display(image)
+	# The first reading seems to be the same every time
+	current_sensor_data["temperature"] = 	sensors.get_temp(-999)
+	current_sensor_data["pressure"] = 		sensors.get_pres(-999)
+	current_sensor_data["humidity"] = 		sensors.get_humi(-999)
+	current_sensor_data["oxidized_gas"], current_sensor_data["reduced_gas"], current_sensor_data["nh3_gas"] = sensors.get_gas([-999, -999, -999])
+	current_sensor_data["pm1"], current_sensor_data["pm2.5"], current_sensor_data["pm10"] = sensors.get_gas([-999, -999, -999])
+	current_sensor_data["proximity"] = 		sensors.get_prox()
 
-		flag = False
-		while not flag: # While the temperature is within reasonable range
-			# Get the current sensor data to check
-			current_sensor_data["temperature"] = 	sensors.get_temp(current_sensor_data["temperature"])
-			current_sensor_data["pressure"] = 		sensors.get_pres(current_sensor_data["pressure"])
-			current_sensor_data["humidity"] = 		sensors.get_humi(current_sensor_data["humidity"])
-			current_sensor_data["oxidized_gas"], current_sensor_data["reduced_gas"], current_sensor_data["nh3_gas"] = sensors.get_gas([current_sensor_data["oxidized_gas"], current_sensor_data["reduced_gas"], current_sensor_data["nh3_gas"]])
-			current_sensor_data["pm1"], current_sensor_data["pm2.5"], current_sensor_data["pm10"] = sensors.get_gas([current_sensor_data["pm1"], current_sensor_data["pm2.5"], current_sensor_data["pm10"]])
-			current_sensor_data["proximity"] = 		sensors.get_prox()
-		
-			if -10 > current_sensor_data["temperature"] > 50: # Stops running if the temperature gets too hot
-				flag = True
-			elif current_sensor_data["proximity"] > 1: # Make sure nothing gets too close to interfere with readings
-				back_color = (200, 0, 25) # Red to indicate error
-				draw.rectangle((0, 0, 160, 80), back_color)
-				display.display(image)
-				while current_sensor_data["proximity"] > 0:
-					# Warn that there is something interfering
-					prox_warning = (
-						"Something is near the sensor. "
-						f"Prox: {current_sensor_data['proximity']}. "
-						"Please remove to continue."
-						)
-					print(prox_warning)
-					# Add the warning to the log
-					logging.warning(
-						prox_warning,
-						extra=extra_info
-						)
-					# Wait 5 seconds before collecting the proximity again
-					time.sleep(5)
-					current_sensor_data["proximity"] = sensors.get_prox()
-				# Warn when restarting collecting
-				logging.warning(
-					"Resuming data collection", 
-					extra=extra_info
-					)
-				back_color = (0, 200, 25) # Green to indicate working
-				draw.rectangle((0, 0, 160, 80), back_color)
-				display.display(image)
-			else: # If there is nothing wrong
-				for sensor in sensors.sensor_list:
-					# Take use decimal places 5-20 for a random string
-					#random_num = Decimal(current_sensor_data[sensor])
-					random_num = int(str(
-						(Decimal(current_sensor_data[sensor])
-						- int(current_sensor_data[sensor]))
-						)[6:22])
-					print(random_num)
-					sensor_data[sensor].append(random_num)
-				logging.info(
-					random_num,
-					extra=extra_info
-					)
-			time.sleep(0) # The avg. sensor refresh is about .88 seconds
+	flag = False
+	current_entropy_bits = 0
+	entropy_output = ""
+	while not flag and current_entropy_bits < min_bits_entropy: # While the temperature is within reasonable range
+		# Get the current sensor data to check
+		current_sensor_data["temperature"] = 	sensors.get_temp(current_sensor_data["temperature"])
+		current_sensor_data["pressure"] = 		sensors.get_pres(current_sensor_data["pressure"])
+		current_sensor_data["humidity"] = 		sensors.get_humi(current_sensor_data["humidity"])
+		current_sensor_data["oxidized_gas"], current_sensor_data["reduced_gas"], current_sensor_data["nh3_gas"] = sensors.get_gas([current_sensor_data["oxidized_gas"], current_sensor_data["reduced_gas"], current_sensor_data["nh3_gas"]])
+		current_sensor_data["pm1"], current_sensor_data["pm2.5"], current_sensor_data["pm10"] = sensors.get_gas([current_sensor_data["pm1"], current_sensor_data["pm2.5"], current_sensor_data["pm10"]])
+		current_sensor_data["proximity"] = 		sensors.get_prox()
 	
+		if -10 > current_sensor_data["temperature"] > 50: # Stops running if the temperature gets too hot
+			flag = True
+		elif current_sensor_data["proximity"] > 1: # Make sure nothing gets too close to interfere with readings
+			back_color = (200, 0, 25) # Red to indicate error
+			draw.rectangle((0, 0, 160, 80), back_color)
+			display.display(image)
+			while current_sensor_data["proximity"] > 0:
+				# Warn that there is something interfering
+				prox_warning = (
+					"Something is near the sensor. "
+					f"Prox: {current_sensor_data['proximity']}. "
+					"Please remove to continue."
+					)
+				print(prox_warning)
+				# Add the warning to the log
+				logging.warning(
+					prox_warning,
+					extra=extra_info
+					)
+				# Wait 5 seconds before collecting the proximity again
+				time.sleep(5)
+				current_sensor_data["proximity"] = sensors.get_prox()
+			# Warn when restarting collecting
+			logging.warning(
+				"Resuming data collection", 
+				extra=extra_info
+				)
+			back_color = (0, 200, 25) # Green to indicate working
+			draw.rectangle((0, 0, 160, 80), back_color)
+			display.display(image)
+		else: # If there is nothing wrong
+			for sensor in sensors.sensor_list:
+				# Take use decimal places 5-20 for a random string
+				#random_num = Decimal(current_sensor_data[sensor])
+				random_num = int(str(
+					(Decimal(current_sensor_data[sensor])
+					- int(current_sensor_data[sensor]))
+					)[6:22])
+				print(random_num)
+				current_entropy_bits += sensors.get_entropy(str(random_num), 10)
+				entropy_output += str(random_num)
+				sensor_data[sensor].append(random_num)
+			logging.info(
+				random_num,
+				extra=extra_info
+				)
+		time.sleep(0) # The avg. sensor refresh is about .88 seconds
+
+	""" For testing entropy of the sensors
 	except KeyboardInterrupt: # When the data collection is manually stopped
 		# Create a graph of the distribution data
 		sensor_dataframe = pd.DataFrame(sensor_data)
@@ -237,5 +242,6 @@ def main():
 				kde=True)
 			plt.show()
 		sensor_dataframe.to_csv("./logs/test_current", index=False)
+		#"""
 
-main()
+collect_noise()
