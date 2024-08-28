@@ -149,9 +149,11 @@ def collect_noise(min_bits_entropy: int):
 				color=(200, 200, 0) # Set to yellow to indicate setup
 				)
 	draw = ImageDraw.Draw(image) # Initiate draw object 
+	try:
+		sensors = Sensors(["temperature", "pressure"]) # Initialize the desired sensors
+	except Exception as e:
+		return("Initialization Failed")
 
-	sensors = Sensors(["temperature", "pressure"]) # Initialize the desired sensors
-	
 	sensor_data = {sensor: [] for sensor in sensors.sensor_list}
 	current_sensor_data = {sensor: 0 for sensor in sensors.sensor_list}
 
