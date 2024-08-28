@@ -92,9 +92,7 @@ class HashDRBG:
         return returned_bits
 
     def main(self):
-        self.__entropy_input = self.get_entropy_input(1.5 * self.requested_bits) # The entropy input plus the nonce
-        if self.__entropy_input == "Initialization Failed":
-            self.status = self.__entropy_input
+        self.status, self.__entropy_input = self.get_entropy_input(1.5 * self.requested_bits) # The entropy input plus the nonce
         if self.status != "Success":
             return self.status, "Invalid"
         

@@ -152,7 +152,7 @@ def collect_noise(min_bits_entropy: int):
 	try:
 		sensors = Sensors(["temperature", "pressure"]) # Initialize the desired sensors
 	except Exception as e:
-		return("Initialization Failed")
+		return ("Initialization Failed",)
 
 	sensor_data = {sensor: [] for sensor in sensors.sensor_list}
 	current_sensor_data = {sensor: 0 for sensor in sensors.sensor_list}
@@ -229,7 +229,7 @@ def collect_noise(min_bits_entropy: int):
 				extra=extra_info
 				)
 		time.sleep(0) # The avg. sensor refresh is about .88 seconds
-	return entropy_output
+	return ("Sucess", entropy_output)
 
 	""" For testing entropy of the sensors
 	except KeyboardInterrupt: # When the data collection is manually stopped
