@@ -180,7 +180,6 @@ def sha_256(original_input: str):
     while (len(binary_string) + 64) % 512 != 0: # K will be negative if the original message is over (a multiple of 512) - 65 bits long
         binary_string += "0" # Add 0 bits until the number is a mutliple of 512 bits
     binary_string += bin(original_length_binary)[2:].zfill(64) # Replace the last 64 bits with the length of the original message
-    print(len(binary_string))
     binary_string_blocks = split_string(binary_string, 512) # Split the string into blocks of 512
     
     M_blocks = [
@@ -266,5 +265,5 @@ def sha_256(original_input: str):
             ])
     
     SHA_256_Hash = "".join([hex(i)[-8:] for i in H_hash[-1]])
-    print(SHA_256_Hash)
+    #print(f"SHA-256 Hash: {SHA_256_Hash}")
     return SHA_256_Hash
