@@ -67,7 +67,7 @@ class HashDRBG:
 
         for count in range(1, length+1):
             temp = temp + sha_256(str(count) + str(num_bits) + input_string)
-        requested_bits = bin(int(temp, 16))[2:num_bits+3] # Account for the 0b and the non-inclusive stopping index
+        requested_bits = bin(int(temp, 16))[2:num_bits+2] # Account for the 0b and the non-inclusive stopping index
         
         self.status = "Success" # TODO: capture potential errors in this function
 
@@ -105,24 +105,13 @@ class HashDRBG:
         returned_bits = self.hashgen()
 
         h = sha_256("00000011" + self.__v)
-        self.__v = (
+        self.__v = bin((
             int(self.__v, 2) 
             + int(h, 16) 
             + int(self.__c, 2) 
-            + self.__reseed_counter) % int(math.pow(2, self.SEED_LENGTH))
+            + self.__reseed_counter) % int(math.pow(2, self.SEED_LENGTH)))[2:]
         self.__reseed_counter += 1
 
         self.status = "Success" # TODO: capture potential errors in this function
 
         return returned_bits
-
-    def main(self):
-        self.get_entropy_input(int(1.5 * self.requested_bits)) # The entropy input plus the nonce
-        if self.status != "Success":
-            return self.status, "Invalid"
-        
-        self.instantiate_algorithm()
-        return self.generate()
-
-csprng = HashDRBG()
-print(csprng.main())
