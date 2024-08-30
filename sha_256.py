@@ -264,6 +264,6 @@ def sha_256(original_input: str):
                 h + H_hash[i-1][7]
             ])
     
-    SHA_256_Hash = "".join([hex(i)[-8:] for i in H_hash[-1]])
+    SHA_256_Hash = "".join([hex(i)[2:][-8:].zfill(8) for i in H_hash[-1]])
     #print(f"SHA-256 Hash: {SHA_256_Hash}")
     return SHA_256_Hash
