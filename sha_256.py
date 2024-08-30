@@ -254,7 +254,7 @@ def sha_256(original_input: str):
 
         H_hash.append(
             [
-                int(hex(a + H_hash[i-1][0])[-8:], 16),
+                int(hex(a + H_hash[i-1][0])[2:][-8:].zfill(8), 16),
                 b + H_hash[i-1][1],
                 c + H_hash[i-1][2],
                 d + H_hash[i-1][3],
